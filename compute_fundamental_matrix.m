@@ -17,7 +17,6 @@ function [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix
 % Pick out only matched points
 coordinates1 = vertcat(features1(1:2, matches(1, :)), ones(1, length(scores)));
 coordinates2 = vertcat(features2(1:2, matches(2, :)), ones(1, length(scores)));
-coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 
 % Find normalization matrix T and apply to the coordinates
 d = sum(scores);
@@ -27,8 +26,8 @@ m2_x = 1/length(scores)*sum(coordinates2(1, :));
 m2_y = 1/length(scores)*sum(coordinates2(2, :));
 T1 = [sqrt(2)/d 0 -m1_x*sqrt(2)/d; 0 sqrt(2)/d -m1_y*sqrt(2)/d; 0 0 1];
 T2 = [sqrt(2)/d 0 -m2_x*sqrt(2)/d; 0 sqrt(2)/d -m2_y*sqrt(2)/d; 0 0 1];
-coordinates1 = T1*coordinates1;
-coordinates2 = T2*coordinates2;
+norm_coordinates1 = T1*coordinates1;
+norm_coordinates2 = T2*coordinates2;
 
 it = 0;
 inliers = 0;
@@ -36,8 +35,8 @@ A = ones(8, 9);
 while it < n_epoch
     % Pick random selection of 8 points
     random_indices = randi(length(scores), 8, 1);
-    points1 = coordinates1(:, random_indices);
-    points2 = coordinates2(:, random_indices);
+    points1 = norm_coordinates1(:, random_indices);
+    points2 = norm_coordinates2(:, random_indices);
     A(:, 1) = points1(1, :).*points2(1, :);
     A(:, 2) = points1(1, :).*points2(2, :);
     A(:, 3) = points1(1, :);
@@ -53,9 +52,9 @@ while it < n_epoch
     S(3, 3) = 0;
     F = T2'*U*S*V'*T1;
 
-    Fp1 = F*coordinates1;
-    Fp2 = F'*coordinates2;
-    d_sampson = sum(reshape(bsxfun(@times, coordinates2(:), Fp1(:)), size(coordinates1, 2), 3), 2)'.^2./(Fp1(1, :).^2 + Fp1(2, :).^2 + Fp2(1, :).^2 + Fp2(2, :).^2);
+    Fp1 = F*norm_coordinates1;
+    Fp2 = F'*norm_coordinates2;
+    d_sampson = sum(reshape(bsxfun(@times, norm_coordinates2(:), Fp1(:)), size(norm_coordinates1, 2), 3), 2)'.^2./(Fp1(1, :).^2 + Fp1(2, :).^2 + Fp2(1, :).^2 + Fp2(2, :).^2);
     tmp_inliers = sum(d_sampson < threshold);
     if tmp_inliers > inliers
         tmp_matches = find(d_sampson < threshold);
@@ -71,6 +70,8 @@ if inliers < 200
     [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
 elseif inliers > 300
     [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold/10, n_epoch);
+else
+    coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 end
 
 end
