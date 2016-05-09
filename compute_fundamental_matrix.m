@@ -17,6 +17,7 @@ function [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix
 % Pick out only matched points
 coordinates1 = vertcat(features1(1:2, matches(1, :)), ones(1, length(scores)));
 coordinates2 = vertcat(features2(1:2, matches(2, :)), ones(1, length(scores)));
+coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 
 % Find normalization matrix T and apply to the coordinates
 d = sum(scores);
@@ -70,8 +71,6 @@ if inliers < 200
     [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
 elseif inliers > 300
     [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold/10, n_epoch);
-else
-    coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 end
 
 end
