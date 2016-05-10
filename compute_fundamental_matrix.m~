@@ -67,9 +67,9 @@ end
 fprintf('Number of inliers: %i\n', inliers);
 
 if inliers < 200
-    [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
-% elseif inliers > 300
-%     [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold/10, n_epoch);
+    [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
+elseif inliers > 300
+    [fundamental_matrix, matches, coordinates] = compute_fundamental_matrix(image1, image2, threshold/10, n_epoch);
 else
     coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 end

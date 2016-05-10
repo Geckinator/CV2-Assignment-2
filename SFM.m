@@ -18,14 +18,14 @@ function [structure] = SFM(povMat)
 
 bsxfun(@minus, povMat,  mean(povMat, 2));
 
-[U,W,V] = svd(povMatrix) ;
+[U,W,V] = svd(povMat) ;
 
 u = U(:, 1:3);
 w= W(1:3, 1:3);
 v= V(:, 1:3) ;
 
 motion= U*W;
-structure= W*V';
+structure= W.^10*V';
 
 
 end
