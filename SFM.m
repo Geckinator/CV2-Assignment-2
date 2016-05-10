@@ -1,124 +1,106 @@
-function [x, y] = point_view_matrix(image_dir, threshold, n_epoch)
+function point_view(image_dir, threshold, n_epoch)
+% point_view calculates the dense blocks of the point view matrix four by
+% four frames at a time, computing the final point cloud on the way, by
+% doing structure from motion via SVM factorization on the four by four
+% dense blocks and then using procrustes to fit them together. The first
+% two views in the dense block will already have been used as the last two
+% blocks in the previous dense block.
 
 files = dir(strcat(image_dir, '*.png'));
 files = {files.name};
 main_view = [];
 
-image1= single(imread(strcat(image_dir, files{1})));
-image2 = single(imread(strcat(image_dir, files{2})));
+for p = 1:2:length(files)-3
 
-if size(image1, 3) > 1
-    image1= rgb2gray(image1);
-end
-if size(image2, 3) > 1
-    image2= rgb2gray(image2);
-end
-[~, coordinates] = compute_fundamental_matrix(image1, image2, threshold, n_epoch);
-x = coordinates([true false true false], :);
-y = coordinates([false true false true], :);
+    image1 = single(imread(strcat(image_dir, files{p})));
+    image2 = single(imread(strcat(image_dir, files{p + 1})));
 
-for i = 2:length(files)-1
-    
-    tmp_x = zeros(1, size(x, 2));
-    tmp_y = zeros(1, size(y, 2));
-    
-    image1= image2;
-    image2 = single(imread(strcat(image_dir, files{i + 1})));
-    
-    if size(image2, 3) > 1
-        image2 = rgb2gray(image2);
+    if size(image1, 3) > 1
+        image1= rgb2gray(image1);
     end
+    if size(image2, 3) > 1
+        image2= rgb2gray(image2);
+    end
+    
+    % Extract matching coordinates, save them in what will be the first two
+    % entries in of the dense blocks in the point view matrix, x and y.
     [~, coordinates] = compute_fundamental_matrix(image1, image2, threshold, n_epoch);
-    %tmp_x(ismember(x(size(x, 1), :), coordinates(1, :))) = coordinates(3, ismember(coordinates(1, :), x(size(x, 1), :)));
-    %tmp_y(ismember(y(size(y, 1), :), coordinates(2, :))) = coordinates(4, ismember(coordinates(2, :), y(size(y, 1), :)));
-    
-    %     for j = 1:size(coordinates, 2)
-    %         if any(x == coordinates(1, j))
-    %             if any(y(x == coordinates(1, j)) == coordinates(2, j))
-    %                 tmp_x(j) = coordinates(3, j);
-    %                 tmp_y(j) = coordinates(4, j);
-    %             end
-    %         end
-    %     end
-    
-    next_x = zeros(size(x));
-    next_y = zeros(size(y));
-    
-    new_x = [];
-    new_y = [];
-    
-%     for k = 1:size(x, 2)
-%         flag = false;
-%         for j = 1:size(coordinates, 2)
-%             if coordinates(1, j) == x(i, k) && coordinates(2, j) == y(i, k)
-%                 tmp_x(k) = coordinates(3, j);
-%                 tmp_y(k) = coordinates(4, j);
-%                 flag = true;
-%             end
-%             if flag
-%                 tmp_col_x = x(:, k);
-%                 tmp_col_y = y(:, k);
-%                 next_x(:, k) = x(:, k);
-%                 next_y(:, k) = y(:, k);
-%                 
-                
+    x = coordinates([true false true false], :);
+    y = coordinates([false true false true], :);
 
-    for j = 1:size(coordinates, 2)
-        flag = false;
-        for k =1 : 1 : length(tmp_x)
-            if coordinates(1,j) == x(i, k) && coordinates(2,j) == y(i, k)
-                tmp_x(k) = coordinates(3, j);
-                tmp_y(k) = coordinates(4, j);
-                flag = true;
+
+    for i = 2:3
+        
+        % Continue to next couple of views
+        image1= image2;
+        image2 = single(imread(strcat(image_dir, files{p + i})));
+
+        if size(image2, 3) > 1
+            image2 = rgb2gray(image2);
+        end
+        
+        % Compute fundamental matrix and return the coordinates that pass
+        % as inliers
+        [~, coordinates] = compute_fundamental_matrix(image1, image2, threshold, n_epoch);
+
+        tmp_x = zeros(1, size(x, 2));
+        tmp_y = zeros(1, size(y, 2));
+        
+        % Loop through the dense blocks, store the ones that re-occur in
+        % the newly matched coordinates, store the indices of the ones that
+        % don't in the vector removable_cols.
+        removable_cols = [];
+        for k = 1:size(x, 2)
+            for j = 1:size(coordinates, 2)
+                if x(size(x, 1), k) == coordinates(1, j) && y(size(y, 1), k) == coordinates(2, j)
+                    tmp_x(k) = coordinates(3, j);
+                    tmp_y(k) = coordinates(4, j);
+                end
+            end
+            if tmp_x(k) == 0
+                removable_cols = vertcat(removable_cols, k);
             end
         end
-        if ~flag
-            new_x = horzcat(new_x, coordinates(3, j));
-            new_y = horzcat(new_y, coordinates(4, j));
-        end
-
+        
+        % Concatenate the re-occurring feature points to the dense block
+        % matrix
+        x = vertcat(x, tmp_x);
+        y = vertcat(y, tmp_y);
+        % Remove the columns of the non-re-occurring points
+        x(:, removable_cols) = [];
+        y(:, removable_cols) = [];
+        
     end
+    
+    % SFM does SVD to compute the coordinates
+    pvm_dense = vertcat(x, y);
+    pvm_dense = bsxfun(@minus, pvm_dense,  mean(pvm_dense, 2));
 
-%     new_x = unique(coordinates(3, ~ismember(coordinates(1, :), x(size(x, 1), :))));
-%     new_y = unique(coordinates(4, ~ismember(coordinates(2, :), y(size(y, 1), :))));
+    [~,W,V] = svd(pvm_dense);
+
+    structure = W(1:3, 1:3).^0.1*V(:, 1:3)';
     
-    x = horzcat(x, zeros(size(x, 1), length(new_x)));
-    y = horzcat(y, zeros(size(y, 1), length(new_y)));
-    x = vertcat(x, horzcat(tmp_x, new_x));
-    y = vertcat(y, horzcat(tmp_y, new_y));
-    
-    if mod(i, 3) == 0
-        structure = SFM(vertcat(x(i-1:i, :), y(i-1:i, :)));
-        if isempty(main_view)
-            main_view = structure;
+    % Now we crop the point clouds so that they have an equal number of
+    % columns, before fitting them together with procrustes and storing the
+    % result in a big point cloud main_view
+    if isempty(main_view)
+        main_view = structure;
+    else
+        if size(main_view, 2) < size(structure, 2)
+            [d, ~] = procrustes(main_view, structure(:, datasample(1:size(structure, 2), size(main_view, 2))));
+            structure = d*structure;
+        elseif size(main_view, 2) > size(structure, 2)
+            [~, structure] = procrustes(main_view(:, datasample(1:size(main_view, 2), size(structure, 2))), structure);
         else
             [~, structure] = procrustes(main_view, structure);
-            main_view = horzcat(main_view, structure);
         end
-        figure(1);
-        scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
+        main_view = horzcat(main_view, structure);
     end
+    
 end
+
+% Plot results
  figure(1);
  scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
 
 end
-
-% o we have Ax pointview--matrix and Ay matrix for x/y coordinates
-%
-% 1) from mathces for frame1-frame2 we got x1, y1, x2, y2 - coordinates of matches.
-%
-% we ignore x1, y1 and set first row of Ax as x2, first row of Ay as y2
-%
-% 2) for frame2-frame3 (and all following) we got x1, y1, x2, y2
-%
-% we create new_rowx/y - of size of prev row of Ax/Ay
-%
-% then for each point in x1/y1
-% we check previous row of Ax/Ay
-% if we found the same point - we set that index of new_rowx/y to corresponfing point in x2/y2
-%
-% if we don't find it - add new value to  new_rowx/y  - to corresponfing point in x2/y2
-%
-% after looking at all points in x1/y1:
-% add new_rowx/y below Ax/Ay
