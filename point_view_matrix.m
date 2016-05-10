@@ -4,7 +4,7 @@ files = dir(strcat(image_dir, '*.png'));
 files = {files.name};
 main_view = [];
 
-[~, coordinates] = compute_fundamental_matrix(single(imread(strcat(image_dir, files{1}))), single(imread(strcat(image_dir, files{2}))), threshold, n_epoch);
+[~, coordinates] = compute_fundamental_matrix(single(rgb2gray(imread(strcat(image_dir, files{1})))), single(rgb2gray(imread(strcat(image_dir, files{2})))), threshold, n_epoch);
 x = coordinates(3, :);
 y = coordinates(4, :);
 
@@ -13,7 +13,7 @@ for i = 3:length(files)
     tmp_x = zeros(1, size(x, 2));
     tmp_y = zeros(1, size(y, 2));
     
-    [~, coordinates] = compute_fundamental_matrix(single(imread(strcat(image_dir, files{i - 1}))), single(imread(strcat(image_dir, files{i}))), threshold, n_epoch);
+    [~, coordinates] = compute_fundamental_matrix(single(rgb2gray(imread(strcat(image_dir, files{i - 1})))), single(rgb2gray(imread(strcat(image_dir, files{i})))), threshold, n_epoch);
     %tmp_x(ismember(x(size(x, 1), :), coordinates(1, :))) = coordinates(3, ismember(coordinates(1, :), x(size(x, 1), :)));
     %tmp_y(ismember(y(size(y, 1), :), coordinates(2, :))) = coordinates(4, ismember(coordinates(2, :), y(size(y, 1), :)));
     

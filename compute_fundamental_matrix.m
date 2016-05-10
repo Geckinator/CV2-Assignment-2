@@ -19,15 +19,7 @@ coordinates1 = vertcat(features1(1:2, matches(1, :)), ones(1, length(scores)));
 coordinates2 = vertcat(features2(1:2, matches(2, :)), ones(1, length(scores)));
 
 % Find normalization matrix T and apply to the coordinates
-d = sum(scores);
-m1_x = 1/length(scores)*sum(coordinates1(1, :));
-m1_y = 1/length(scores)*sum(coordinates1(2, :));
-m2_x = 1/length(scores)*sum(coordinates2(1, :));
-m2_y = 1/length(scores)*sum(coordinates2(2, :));
-T1 = [sqrt(2)/d 0 -m1_x*sqrt(2)/d; 0 sqrt(2)/d -m1_y*sqrt(2)/d; 0 0 1];
-T2 = [sqrt(2)/d 0 -m2_x*sqrt(2)/d; 0 sqrt(2)/d -m2_y*sqrt(2)/d; 0 0 1];
-norm_coordinates1 = T1*coordinates1;
-norm_coordinates2 = T2*coordinates2;
+
 
 it = 0;
 inliers = 0;
@@ -35,8 +27,20 @@ A = ones(8, 9);
 while it < n_epoch
     % Pick random selection of 8 points
     random_indices = randi(length(scores), 8, 1);
-    points1 = norm_coordinates1(:, random_indices);
-    points2 = norm_coordinates2(:, random_indices);
+    points1 = coordinates1(:, random_indices);
+    points2 = coordinates2(:, random_indices);
+    % Normalize them using normalization matrices T1 and T2
+    m1_x = 1/8*sum(points1(1, :));
+    m1_y = 1/8*sum(points1(2, :));
+    m2_x = 1/8*sum(points2(1, :));
+    m2_y = 1/8*sum(points2(2, :));
+    d1 = 1/8*sum(sqrt((points1(1, :) - m1_x).^2 + (points1(2, :) - m1_y).^2));
+    d2 = 1/8*sum(sqrt((points2(1, :) - m2_x).^2 + (points2(2, :) - m2_y).^2));
+    T1 = [sqrt(2)/d1 0 -m1_x*sqrt(2)/d1; 0 sqrt(2)/d1 -m1_y*sqrt(2)/d1; 0 0 1];
+    T2 = [sqrt(2)/d2 0 -m2_x*sqrt(2)/d2; 0 sqrt(2)/d2 -m2_y*sqrt(2)/d2; 0 0 1];
+    points1 = T1*points1;
+    points2 = T2*points2;
+    % Construct A as in assignment paper
     A(:, 1) = points1(1, :).*points2(1, :);
     A(:, 2) = points1(1, :).*points2(2, :);
     A(:, 3) = points1(1, :);
@@ -45,6 +49,7 @@ while it < n_epoch
     A(:, 6) = points1(2, :);
     A(:, 7) = points2(1, :);
     A(:, 8) = points2(2, :);
+    % Do SVD on A and find F from V
     [~,~,V] = svd(A);
     F = [V(1:3, 9), V(4:6, 9), V(7:9, 9)];
     % Force F to have rank 2 and denormalize
@@ -52,9 +57,9 @@ while it < n_epoch
     S(3, 3) = 0;
     F = T2'*U*S*V'*T1;
 
-    Fp1 = F*norm_coordinates1;
-    Fp2 = F'*norm_coordinates2;
-    d_sampson = sum(reshape(bsxfun(@times, norm_coordinates2(:), Fp1(:)), size(norm_coordinates1, 2), 3), 2)'.^2./(Fp1(1, :).^2 + Fp1(2, :).^2 + Fp2(1, :).^2 + Fp2(2, :).^2);
+    Fp1 = F*coordinates1;
+    Fp2 = F'*coordinates2;
+    d_sampson = sum(reshape(bsxfun(@times, coordinates2(:), Fp1(:)), size(coordinates1, 2), 3), 2)'.^2./(Fp1(1, :).^2 + Fp1(2, :).^2 + Fp2(1, :).^2 + Fp2(2, :).^2);
     tmp_inliers = sum(d_sampson < threshold);
     if tmp_inliers > inliers
         tmp_matches = find(d_sampson < threshold);
@@ -68,8 +73,8 @@ fprintf('Number of inliers: %i\n', inliers);
 
 if inliers < 200
     [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
-% elseif inliers > 300
-%     [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold/10, n_epoch);
+elseif inliers > 300
+    [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold/4, n_epoch);
 else
     coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 end
