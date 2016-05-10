@@ -26,7 +26,7 @@ inliers = 0;
 A = ones(8, 9);
 while it < n_epoch
     % Pick random selection of 8 points
-    random_indices = randi(length(scores), 8, 1);
+    random_indices = datasample(1:length(scores), 8);
     points1 = coordinates1(:, random_indices);
     points2 = coordinates2(:, random_indices);
     % Normalize them using normalization matrices T1 and T2
@@ -56,7 +56,9 @@ while it < n_epoch
     [U, S, V] = svd(F);
     S(3, 3) = 0;
     F = T2'*U*S*V'*T1;
-
+    
+    % Compute inliers and store the correspoinding matches and fundamental
+    % matrix
     Fp1 = F*coordinates1;
     Fp2 = F'*coordinates2;
     d_sampson = sum(reshape(bsxfun(@times, coordinates2(:), Fp1(:)), size(coordinates1, 2), 3), 2)'.^2./(Fp1(1, :).^2 + Fp1(2, :).^2 + Fp2(1, :).^2 + Fp2(2, :).^2);
@@ -71,10 +73,13 @@ while it < n_epoch
 end
 fprintf('Number of inliers: %i\n', inliers);
 
-if inliers < 200
-    [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold*10, n_epoch);
-elseif inliers > 300
-    [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold/4, n_epoch);
+% Ensure that the correct number of inliers was obtained. If not, call the
+% function again, else return the current coordinates.
+%if inliers/(size(coordinates1, 2) - inliers) < 20
+if inliers < 250
+    [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold*2, n_epoch);
+elseif inliers > 350
+     [fundamental_matrix, coordinates] = compute_fundamental_matrix(image1, image2, threshold/3, n_epoch);
 else
     coordinates = vertcat(coordinates1(1:2, tmp_matches), coordinates2(1:2, tmp_matches));
 end
