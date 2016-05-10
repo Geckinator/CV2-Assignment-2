@@ -17,13 +17,13 @@ end
 x = coordinates([true false true false], :);
 y = coordinates([false true false true], :);
 
-for i = 3:length(files)
+for i = 2:length(files)-1
     
     tmp_x = zeros(1, size(x, 2));
     tmp_y = zeros(1, size(y, 2));
     
     image1= image2;
-    image2 = single(imread(strcat(image_dir, files{i - 1})));
+    image2 = single(imread(strcat(image_dir, files{i + 1})));
     
     if size(image2, 3) > 1
         image2 = rgb2gray(image2);
@@ -41,45 +41,66 @@ for i = 3:length(files)
     %         end
     %     end
     
+    next_x = zeros(size(x));
+    next_y = zeros(size(y));
     
+    new_x = [];
+    new_y = [];
     
-%     for m = 1: 1: i-1
-        for j = 1:size(coordinates, 2)
-            for k =1 : 1 : length(tmp_x)
-                if coordinates(1,j) == x(i-1, k)
-                    tmp_x(k) = coordinates(3, j);
-                end
+%     for k = 1:size(x, 2)
+%         flag = false;
+%         for j = 1:size(coordinates, 2)
+%             if coordinates(1, j) == x(i, k) && coordinates(2, j) == y(i, k)
+%                 tmp_x(k) = coordinates(3, j);
+%                 tmp_y(k) = coordinates(4, j);
+%                 flag = true;
+%             end
+%             if flag
+%                 tmp_col_x = x(:, k);
+%                 tmp_col_y = y(:, k);
+%                 next_x(:, k) = x(:, k);
+%                 next_y(:, k) = y(:, k);
+%                 
                 
-                if coordinates(2,j) == y(i-1, k)
-                    tmp_y(k) = coordinates(4, j);
-                end
+
+    for j = 1:size(coordinates, 2)
+        flag = false;
+        for k =1 : 1 : length(tmp_x)
+            if coordinates(1,j) == x(i, k) && coordinates(2,j) == y(i, k)
+                tmp_x(k) = coordinates(3, j);
+                tmp_y(k) = coordinates(4, j);
+                flag = true;
             end
-            
         end
-%     end
-    
-    new_x = unique(coordinates(3, ~ismember(coordinates(1, :), x(size(x, 1), :))));
-    new_y = unique(coordinates(4, ~ismember(coordinates(2, :), y(size(y, 1), :))));
+        if ~flag
+            new_x = horzcat(new_x, coordinates(3, j));
+            new_y = horzcat(new_y, coordinates(4, j));
+        end
+
+    end
+
+%     new_x = unique(coordinates(3, ~ismember(coordinates(1, :), x(size(x, 1), :))));
+%     new_y = unique(coordinates(4, ~ismember(coordinates(2, :), y(size(y, 1), :))));
     
     x = horzcat(x, zeros(size(x, 1), length(new_x)));
     y = horzcat(y, zeros(size(y, 1), length(new_y)));
     x = vertcat(x, horzcat(tmp_x, new_x));
     y = vertcat(y, horzcat(tmp_y, new_y));
     
-    %     if mod(i, 5) == 0
-    %         structure = SFM(vertcat(x(i-4:i-1, :), y(i-4:i-1, :)));
-    %         if isempty(main_view)
-    %             main_view = structure;
-    %         else
-    %             [~, structure] = procrustes(main_view, structure);
-    %             main_view = horzcat(main_view, structure);
-    %         end
-    %         figure(1);
-    %         scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
-    %     end
+    if mod(i, 3) == 0
+        structure = SFM(vertcat(x(i-1:i, :), y(i-1:i, :)));
+        if isempty(main_view)
+            main_view = structure;
+        else
+            [~, structure] = procrustes(main_view, structure);
+            main_view = horzcat(main_view, structure);
+        end
+        figure(1);
+        scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
+    end
 end
-% figure(1);
-% scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
+ figure(1);
+ scatter3(main_view(1,:),main_view(2,:),main_view(3,:), 2);
 
 end
 

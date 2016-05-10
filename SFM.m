@@ -25,7 +25,7 @@ w= W(1:3, 1:3);
 v= V(:, 1:3) ;
 
 motion= U*W;
-structure= W.^10*V';
+structure= W.^40*V';
 
 
 end
